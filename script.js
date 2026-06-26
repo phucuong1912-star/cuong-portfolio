@@ -2,6 +2,7 @@ const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)
 const cursorGlow = document.querySelector('.cursor-glow');
 const progress = document.querySelector('.scroll-progress');
 const canvas = document.querySelector('#global-scene');
+let sectionProgress = 0;
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -16,9 +17,12 @@ if (cursorGlow && !prefersReducedMotion) {
 
 const updateScrollProgress = () => {
   const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-  const amount = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
+  const amount = document.body.classList.contains('fullpage-enabled')
+    ? sectionProgress
+    : scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
   if (progress) progress.style.width = `${clamp(amount, 0, 100)}%`;
   document.documentElement.style.setProperty('--scroll-progress', amount.toFixed(2));
+  window.__sectionProgress = amount;
 };
 window.addEventListener('scroll', updateScrollProgress, { passive: true });
 updateScrollProgress();
@@ -36,14 +40,140 @@ document.querySelectorAll('.reveal').forEach((element) => revealObserver.observe
 
 const sections = [...document.querySelectorAll('main section[id]')];
 const navLinks = [...document.querySelectorAll('.primary-nav a')];
-const setActiveNav = () => {
-  const current = sections.findLast((section) => section.getBoundingClientRect().top <= 160);
+let activeSectionIndex = Math.max(0, sections.findIndex((section) => `#${section.id}` === window.location.hash));
+let sectionTransitionLocked = false;
+let touchStartY = 0;
+
+const sectionLabel = document.createElement('div');
+sectionLabel.className = 'section-label';
+document.body.append(sectionLabel);
+
+const sectionDots = document.createElement('div');
+sectionDots.className = 'section-dots';
+const dotButtons = sections.map((section, index) => {
+  const button = document.createElement('button');
+  button.className = 'section-dot';
+  button.type = 'button';
+  button.setAttribute('aria-label', `Go to ${section.id}`);
+  button.addEventListener('click', () => goToSection(index));
+  sectionDots.append(button);
+  return button;
+});
+document.body.append(sectionDots);
+
+const updateActiveNav = () => {
+  const activeSection = sections[activeSectionIndex];
   navLinks.forEach((link) => {
-    link.toggleAttribute('aria-current', current && link.getAttribute('href') === `#${current.id}`);
+    link.toggleAttribute('aria-current', link.getAttribute('href') === `#${activeSection.id}`);
+  });
+  dotButtons.forEach((dot, index) => {
+    dot.classList.toggle('is-active', index === activeSectionIndex);
+    dot.toggleAttribute('aria-current', index === activeSectionIndex);
+  });
+  sectionLabel.textContent = `${String(activeSectionIndex + 1).padStart(2, '0')} / ${String(sections.length).padStart(2, '0')} ${activeSection.id}`;
+};
+
+const updateSectionProgress = () => {
+  sectionProgress = sections.length > 1 ? (activeSectionIndex / (sections.length - 1)) * 100 : 0;
+  updateScrollProgress();
+};
+
+const showSectionReveals = (section) => {
+  section.querySelectorAll('.reveal').forEach((element) => element.classList.remove('show'));
+  requestAnimationFrame(() => {
+    section.querySelectorAll('.reveal').forEach((element) => element.classList.add('show'));
+  });
+  section.querySelectorAll('[data-count]').forEach((counter) => {
+    counter.dataset.counted = '';
+    animateCounter(counter);
   });
 };
-window.addEventListener('scroll', setActiveNav, { passive: true });
-setActiveNav();
+
+function markActiveSection() {
+  const activeSection = sections[activeSectionIndex];
+  sections.forEach((section, index) => {
+    section.classList.toggle('section-active', index === activeSectionIndex);
+    section.classList.toggle('section-before', index < activeSectionIndex);
+    section.classList.toggle('section-after', index > activeSectionIndex);
+    section.setAttribute('aria-hidden', index === activeSectionIndex ? 'false' : 'true');
+    if (index !== activeSectionIndex) {
+      section.querySelectorAll('.reveal').forEach((element) => element.classList.remove('show'));
+    }
+  });
+  showSectionReveals(activeSection);
+  updateActiveNav();
+  updateSectionProgress();
+  if (window.location.hash !== `#${activeSection.id}`) {
+    window.history.replaceState(null, '', `#${activeSection.id}`);
+  }
+}
+
+function goToSection(index) {
+  const nextIndex = clamp(index, 0, sections.length - 1);
+  if (nextIndex === activeSectionIndex || sectionTransitionLocked) return;
+  document.body.dataset.direction = nextIndex > activeSectionIndex ? 'down' : 'up';
+  activeSectionIndex = nextIndex;
+  sectionTransitionLocked = true;
+  markActiveSection();
+  window.setTimeout(() => {
+    sectionTransitionLocked = false;
+  }, prefersReducedMotion ? 120 : 920);
+}
+
+function initFullPageNavigation() {
+  revealObserver.disconnect();
+  document.documentElement.classList.add('fullpage-enabled');
+  document.body.classList.add('fullpage-enabled');
+  markActiveSection();
+
+  window.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    if (Math.abs(event.deltaY) < 18) return;
+    goToSection(activeSectionIndex + (event.deltaY > 0 ? 1 : -1));
+  }, { passive: false });
+
+  window.addEventListener('keydown', (event) => {
+    const tagName = document.activeElement?.tagName;
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') return;
+    if (['ArrowDown', 'PageDown', ' '].includes(event.key)) {
+      event.preventDefault();
+      goToSection(activeSectionIndex + 1);
+    }
+    if (['ArrowUp', 'PageUp'].includes(event.key)) {
+      event.preventDefault();
+      goToSection(activeSectionIndex - 1);
+    }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      goToSection(0);
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      goToSection(sections.length - 1);
+    }
+  });
+
+  window.addEventListener('touchstart', (event) => {
+    touchStartY = event.touches[0]?.clientY || 0;
+  }, { passive: true });
+
+  window.addEventListener('touchend', (event) => {
+    const endY = event.changedTouches[0]?.clientY || touchStartY;
+    const delta = touchStartY - endY;
+    if (Math.abs(delta) > 42) goToSection(activeSectionIndex + (delta > 0 ? 1 : -1));
+  }, { passive: true });
+
+  document.querySelectorAll('a[href^="#"]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      const target = document.querySelector(link.getAttribute('href'));
+      const index = sections.indexOf(target);
+      if (index >= 0) {
+        event.preventDefault();
+        goToSection(index);
+      }
+    });
+  });
+}
 
 document.querySelectorAll('[data-tilt]').forEach((card) => {
   if (prefersReducedMotion) return;
@@ -101,13 +231,15 @@ const statObserver = new IntersectionObserver((entries) => {
 
 document.querySelectorAll('.stats-grid').forEach((grid) => statObserver.observe(grid));
 
+if (sections.length) initFullPageNavigation();
+
 async function initThreeScene() {
   if (!canvas) return;
 
   try {
     const THREE = await import('./vendor/three.module.js');
     const scene = new THREE.Scene();
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 120);
@@ -333,7 +465,7 @@ async function initThreeScene() {
     const clock = new THREE.Clock();
     const animate = () => {
       const elapsed = clock.getElapsedTime();
-      const scrollInfluence = window.scrollY * 0.00035;
+      const scrollInfluence = (window.__sectionProgress || 0) * 0.014;
 
       root.rotation.y = elapsed * 0.045 + pointer.x * 0.08 + scrollInfluence * 0.5;
       root.rotation.x = -0.05 + pointer.y * 0.04;
