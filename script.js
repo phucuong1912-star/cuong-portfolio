@@ -40,9 +40,31 @@ document.querySelectorAll('.reveal').forEach((element) => revealObserver.observe
 
 const sections = [...document.querySelectorAll('main section[id]')];
 const navLinks = [...document.querySelectorAll('.primary-nav a')];
+const orbitTags = [...document.querySelectorAll('.orbit-tag')];
 let activeSectionIndex = Math.max(0, sections.findIndex((section) => `#${section.id}` === window.location.hash));
 let sectionTransitionLocked = false;
 let touchStartY = 0;
+
+const positionOrbitTags = () => {
+  const orbit = document.querySelector('.skill-orbit');
+  const orbitSize = orbit ? Math.min(orbit.clientWidth || 680, orbit.clientHeight || orbit.clientWidth || 680) : 680;
+  const ringScale = [0.18, 0.27, 0.36];
+
+  orbitTags.forEach((tag, index) => {
+    const ring = index % 3;
+    const radius = Math.round(orbitSize * ringScale[ring]);
+    const angle = (index / orbitTags.length) * 360 + ring * 8;
+    const counterAngle = -angle;
+
+    tag.style.setProperty('--angle', `${angle}deg`);
+    tag.style.setProperty('--counter-angle', `${counterAngle}deg`);
+    tag.style.setProperty('--radius', `${radius}px`);
+    tag.style.setProperty('--delay', `${index * 42}ms`);
+    tag.style.setProperty('--lift', `${ring * 18}px`);
+  });
+};
+positionOrbitTags();
+window.addEventListener('resize', positionOrbitTags, { passive: true });
 
 const sectionLabel = document.createElement('div');
 sectionLabel.className = 'section-label';
