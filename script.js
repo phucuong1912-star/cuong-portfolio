@@ -18,6 +18,7 @@ const updateScrollProgress = () => {
   const scrollable = document.documentElement.scrollHeight - window.innerHeight;
   const amount = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
   if (progress) progress.style.width = `${clamp(amount, 0, 100)}%`;
+  document.documentElement.style.setProperty('--scroll-progress', amount.toFixed(2));
 };
 window.addEventListener('scroll', updateScrollProgress, { passive: true });
 updateScrollProgress();
@@ -64,6 +65,42 @@ document.querySelectorAll('[data-tilt]').forEach((card) => {
   });
 });
 
+document.querySelectorAll('.stats-grid article, .strength-list article, .system-map').forEach((element) => {
+  element.addEventListener('pointermove', (event) => {
+    const rect = element.getBoundingClientRect();
+    element.style.setProperty('--mx', `${((event.clientX - rect.left) / rect.width) * 100}%`);
+    element.style.setProperty('--my', `${((event.clientY - rect.top) / rect.height) * 100}%`);
+  }, { passive: true });
+});
+
+const animateCounter = (element) => {
+  if (element.dataset.counted || element.dataset.static) return;
+  const target = Number(element.dataset.count || 0);
+  const suffix = element.dataset.suffix || '';
+  const start = performance.now();
+  const duration = 1200;
+  element.dataset.counted = 'true';
+
+  const tick = (now) => {
+    const progressAmount = clamp((now - start) / duration, 0, 1);
+    const eased = 1 - Math.pow(1 - progressAmount, 3);
+    element.textContent = `${Math.round(target * eased)}${suffix}`;
+    if (progressAmount < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+
+const statObserver = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) {
+      entry.target.querySelectorAll('[data-count]').forEach(animateCounter);
+      statObserver.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.35 });
+
+document.querySelectorAll('.stats-grid').forEach((grid) => statObserver.observe(grid));
+
 async function initThreeScene() {
   if (!canvas) return;
 
@@ -77,11 +114,12 @@ async function initThreeScene() {
     camera.position.set(0, 0.12, 11.4);
 
     const root = new THREE.Group();
+    const ambientLayer = new THREE.Group();
     const nodeLayer = new THREE.Group();
     const lineLayer = new THREE.Group();
     const packetLayer = new THREE.Group();
     scene.add(root);
-    root.add(lineLayer, nodeLayer, packetLayer);
+    root.add(ambientLayer, lineLayer, nodeLayer, packetLayer);
 
     const materials = {
       core: new THREE.MeshStandardMaterial({
@@ -204,6 +242,43 @@ async function initThreeScene() {
     });
     root.add(rings);
 
+    const ribbonMaterials = [
+      new THREE.LineBasicMaterial({ color: 0xf6eee3, transparent: true, opacity: 0.12 }),
+      new THREE.LineBasicMaterial({ color: 0xa8d879, transparent: true, opacity: 0.1 }),
+      new THREE.LineBasicMaterial({ color: 0xe96d48, transparent: true, opacity: 0.09 })
+    ];
+    const ribbons = Array.from({ length: 6 }, (_, index) => {
+      const y = -2.6 + index * 1.05;
+      const points = [];
+      for (let i = 0; i <= 90; i += 1) {
+        const t = i / 90;
+        points.push(new THREE.Vector3(
+          -5.6 + t * 11.2,
+          y + Math.sin(t * Math.PI * 2 + index) * 0.32,
+          -1.4 + Math.cos(t * Math.PI * 3 + index * 0.7) * 0.8
+        ));
+      }
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const line = new THREE.Line(geometry, ribbonMaterials[index % ribbonMaterials.length].clone());
+      line.rotation.z = (index - 2.5) * 0.08;
+      line.userData.baseOpacity = line.material.opacity;
+      ambientLayer.add(line);
+      return line;
+    });
+
+    const satelliteGeometry = new THREE.SphereGeometry(0.035, 12, 12);
+    const satelliteMaterial = new THREE.MeshBasicMaterial({ color: 0xf6eee3, transparent: true, opacity: 0.52 });
+    const satellites = Array.from({ length: 18 }, (_, index) => {
+      const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial.clone());
+      satellite.userData.radius = 1.8 + (index % 6) * 0.55;
+      satellite.userData.speed = 0.12 + (index % 5) * 0.025;
+      satellite.userData.phase = index * 0.74;
+      satellite.userData.y = -2.4 + (index % 7) * 0.8;
+      satellite.material.opacity = 0.2 + (index % 4) * 0.08;
+      ambientLayer.add(satellite);
+      return satellite;
+    });
+
     const particlesGeometry = new THREE.BufferGeometry();
     const particleCount = 220;
     const particlePositions = new Float32Array(particleCount * 3);
@@ -265,6 +340,7 @@ async function initThreeScene() {
       root.position.x = (root.userData.baseX || 0) + Math.sin(elapsed * 0.16) * 0.12 + pointer.x * 0.08;
       root.position.y = (root.userData.baseY || 0) + Math.sin(elapsed * 0.4) * 0.05 - Math.sin(scrollInfluence * 1.2) * 0.16;
       rings.rotation.z = elapsed * 0.05;
+      ambientLayer.rotation.z = Math.sin(elapsed * 0.09) * 0.08;
       particles.rotation.y = elapsed * 0.018;
       particles.rotation.x = Math.sin(elapsed * 0.14) * 0.035;
       halo.scale.setScalar(1 + Math.sin(elapsed * 1.8) * 0.035);
@@ -279,6 +355,20 @@ async function initThreeScene() {
         const t = (elapsed * packet.userData.speed + packet.userData.offset) % 1;
         packet.position.copy(packet.userData.curve.getPointAt(t));
         packet.scale.setScalar(1 + Math.sin(elapsed * 3 + index) * 0.16);
+      });
+
+      ribbons.forEach((ribbon, index) => {
+        ribbon.position.y = Math.sin(elapsed * 0.28 + index) * 0.06;
+        ribbon.material.opacity = ribbon.userData.baseOpacity + Math.sin(elapsed * 0.7 + index) * 0.025;
+      });
+
+      satellites.forEach((satellite, index) => {
+        const angle = elapsed * satellite.userData.speed + satellite.userData.phase;
+        satellite.position.set(
+          Math.cos(angle) * satellite.userData.radius,
+          satellite.userData.y + Math.sin(elapsed * 0.45 + index) * 0.08,
+          Math.sin(angle) * satellite.userData.radius * 0.42
+        );
       });
 
       renderer.render(scene, camera);
