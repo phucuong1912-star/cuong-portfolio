@@ -73,8 +73,8 @@ async function initThreeScene() {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 120);
-    camera.position.set(0, 0.18, 10.6);
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 120);
+    camera.position.set(0, 0.12, 11.4);
 
     const root = new THREE.Group();
     const nodeLayer = new THREE.Group();
@@ -86,57 +86,63 @@ async function initThreeScene() {
     const materials = {
       core: new THREE.MeshStandardMaterial({
         color: 0xf4e9dc,
-        roughness: 0.28,
-        metalness: 0.54,
+        roughness: 0.52,
+        metalness: 0.22,
         emissive: 0x4a2418,
-        emissiveIntensity: 0.34
+        emissiveIntensity: 0.22,
+        transparent: true,
+        opacity: 0.44
       }),
       api: new THREE.MeshStandardMaterial({
         color: 0xe96d48,
-        roughness: 0.4,
-        metalness: 0.72,
+        roughness: 0.54,
+        metalness: 0.28,
         emissive: 0x2a0f09,
-        emissiveIntensity: 0.5
+        emissiveIntensity: 0.3,
+        transparent: true,
+        opacity: 0.5
       }),
       queue: new THREE.MeshStandardMaterial({
         color: 0xa8d879,
-        roughness: 0.36,
-        metalness: 0.52,
+        roughness: 0.5,
+        metalness: 0.2,
         emissive: 0x14220d,
-        emissiveIntensity: 0.42
+        emissiveIntensity: 0.26,
+        transparent: true,
+        opacity: 0.5
       }),
       ai: new THREE.MeshStandardMaterial({
         color: 0xb9a4d6,
-        roughness: 0.32,
-        metalness: 0.46,
+        roughness: 0.48,
+        metalness: 0.18,
         emissive: 0x1d1428,
-        emissiveIntensity: 0.38
+        emissiveIntensity: 0.24,
+        transparent: true,
+        opacity: 0.46
       }),
       glass: new THREE.MeshStandardMaterial({
         color: 0xf6eee3,
         roughness: 0.18,
         metalness: 0.16,
         transparent: true,
-        opacity: 0.23
+        opacity: 0.16
       })
     };
 
     const nodeSpecs = [
-      { label: 'Circle K Core', position: [0, 0, 0.6], type: 'core', size: 0.74 },
-      { label: 'ShopeeFood', position: [-3.15, 1.45, -0.15], type: 'api', size: 0.52 },
-      { label: 'GrabMart', position: [3.05, 1.25, -0.05], type: 'queue', size: 0.55 },
-      { label: 'POS', position: [-2.55, -1.45, 0.1], type: 'glass', size: 0.5 },
-      { label: 'CMS', position: [2.45, -1.62, 0.05], type: 'glass', size: 0.5 },
-      { label: 'Redis', position: [0, 2.35, -0.6], type: 'api', size: 0.44 },
-      { label: 'RAG', position: [0.12, -2.38, -0.5], type: 'ai', size: 0.48 }
+      { label: 'Circle K Core', position: [0.15, 0, 0.4], type: 'core', size: 0.42 },
+      { label: 'ShopeeFood', position: [-2.85, 1.18, -0.2], type: 'api', size: 0.3 },
+      { label: 'GrabMart', position: [2.85, 1.05, -0.12], type: 'queue', size: 0.32 },
+      { label: 'POS', position: [-2.35, -1.38, 0], type: 'glass', size: 0.28 },
+      { label: 'CMS', position: [2.2, -1.52, 0], type: 'glass', size: 0.28 },
+      { label: 'Redis', position: [0, 2.15, -0.55], type: 'api', size: 0.24 },
+      { label: 'RAG', position: [0.16, -2.16, -0.5], type: 'ai', size: 0.26 }
     ];
 
     const nodeMeshes = nodeSpecs.map((spec, index) => {
       const geometry = index === 0
         ? new THREE.IcosahedronGeometry(spec.size, 2)
-        : index % 2
-          ? new THREE.BoxGeometry(spec.size, spec.size, spec.size, 3, 3, 3)
-          : new THREE.OctahedronGeometry(spec.size, 1);
+        : new THREE.SphereGeometry(spec.size, 20, 20);
       const mesh = new THREE.Mesh(geometry, materials[spec.type]);
       mesh.position.set(...spec.position);
       mesh.rotation.set(index * 0.32, index * 0.23, index * 0.17);
@@ -160,14 +166,14 @@ async function initThreeScene() {
       const lineMaterial = new THREE.MeshBasicMaterial({
         color: index % 3 === 0 ? 0xe96d48 : index % 3 === 1 ? 0xa8d879 : 0xf6eee3,
         transparent: true,
-        opacity: 0.34
+        opacity: 0.18
       });
       const mesh = new THREE.Mesh(tube, lineMaterial);
       lineLayer.add(mesh);
       return curve;
     });
 
-    const packetGeometry = new THREE.SphereGeometry(0.055, 16, 16);
+    const packetGeometry = new THREE.SphereGeometry(0.038, 14, 14);
     const packetMaterials = [
       new THREE.MeshBasicMaterial({ color: 0xffa07d }),
       new THREE.MeshBasicMaterial({ color: 0xc8f29a }),
@@ -184,9 +190,9 @@ async function initThreeScene() {
 
     const rings = new THREE.Group();
     [
-      [3.25, 0.012, 0xf6eee3, 0.1, Math.PI / 2.65],
-      [2.25, 0.01, 0xa8d879, 0.16, Math.PI / 2.05],
-      [4.08, 0.008, 0xe96d48, 0.1, Math.PI / 2.95]
+      [3.4, 0.008, 0xf6eee3, 0.07, Math.PI / 2.65],
+      [2.35, 0.007, 0xa8d879, 0.1, Math.PI / 2.05],
+      [4.3, 0.006, 0xe96d48, 0.07, Math.PI / 2.95]
     ].forEach(([radius, tube, color, opacity, rotation], index) => {
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(radius, tube, 12, 180),
@@ -199,7 +205,7 @@ async function initThreeScene() {
     root.add(rings);
 
     const particlesGeometry = new THREE.BufferGeometry();
-    const particleCount = 320;
+    const particleCount = 220;
     const particlePositions = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount; i += 1) {
       const angle = Math.random() * Math.PI * 2;
@@ -211,13 +217,13 @@ async function initThreeScene() {
     particlesGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
     const particles = new THREE.Points(
       particlesGeometry,
-      new THREE.PointsMaterial({ color: 0xf4d7c6, size: 0.018, transparent: true, opacity: 0.58 })
+      new THREE.PointsMaterial({ color: 0xf4d7c6, size: 0.012, transparent: true, opacity: 0.42 })
     );
     root.add(particles);
 
     const halo = new THREE.Mesh(
       new THREE.SphereGeometry(1.24, 32, 32),
-      new THREE.MeshBasicMaterial({ color: 0xe96d48, transparent: true, opacity: 0.055, wireframe: true })
+      new THREE.MeshBasicMaterial({ color: 0xe96d48, transparent: true, opacity: 0.035, wireframe: true })
     );
     nodeLayer.add(halo);
 
@@ -242,8 +248,9 @@ async function initThreeScene() {
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
-      root.scale.setScalar(width < 760 ? 0.78 : width > 1280 ? 1.1 : 1);
-      root.userData.baseX = width < 760 ? 0 : 1.2;
+      root.scale.setScalar(width < 760 ? 0.72 : width > 1280 ? 0.92 : 0.84);
+      root.userData.baseX = width < 760 ? 0.35 : 2.25;
+      root.userData.baseY = width < 760 ? -0.35 : 0.08;
     };
     window.addEventListener('resize', resize);
     resize();
@@ -253,25 +260,25 @@ async function initThreeScene() {
       const elapsed = clock.getElapsedTime();
       const scrollInfluence = window.scrollY * 0.00035;
 
-      root.rotation.y = elapsed * 0.11 + pointer.x * 0.18 + scrollInfluence;
-      root.rotation.x = -0.08 + pointer.y * 0.08;
-      root.position.x = (root.userData.baseX || 0) + Math.sin(elapsed * 0.2) * 0.2 + pointer.x * 0.16;
-      root.position.y = Math.sin(elapsed * 0.5) * 0.08 - Math.sin(scrollInfluence * 1.8) * 0.26;
-      rings.rotation.z = elapsed * 0.12;
-      particles.rotation.y = elapsed * 0.028;
-      particles.rotation.x = Math.sin(elapsed * 0.18) * 0.05;
+      root.rotation.y = elapsed * 0.045 + pointer.x * 0.08 + scrollInfluence * 0.5;
+      root.rotation.x = -0.05 + pointer.y * 0.04;
+      root.position.x = (root.userData.baseX || 0) + Math.sin(elapsed * 0.16) * 0.12 + pointer.x * 0.08;
+      root.position.y = (root.userData.baseY || 0) + Math.sin(elapsed * 0.4) * 0.05 - Math.sin(scrollInfluence * 1.2) * 0.16;
+      rings.rotation.z = elapsed * 0.05;
+      particles.rotation.y = elapsed * 0.018;
+      particles.rotation.x = Math.sin(elapsed * 0.14) * 0.035;
       halo.scale.setScalar(1 + Math.sin(elapsed * 1.8) * 0.035);
 
       nodeMeshes.forEach((node, index) => {
-        node.rotation.x += 0.006 + index * 0.0006;
-        node.rotation.y += 0.008 + index * 0.0005;
-        node.position.y = node.userData.base.y + Math.sin(elapsed * 1.12 + node.userData.float) * 0.08;
+        node.rotation.x += 0.003 + index * 0.00035;
+        node.rotation.y += 0.004 + index * 0.0003;
+        node.position.y = node.userData.base.y + Math.sin(elapsed * 0.9 + node.userData.float) * 0.055;
       });
 
       packets.forEach((packet, index) => {
         const t = (elapsed * packet.userData.speed + packet.userData.offset) % 1;
         packet.position.copy(packet.userData.curve.getPointAt(t));
-        packet.scale.setScalar(1 + Math.sin(elapsed * 4 + index) * 0.22);
+        packet.scale.setScalar(1 + Math.sin(elapsed * 3 + index) * 0.16);
       });
 
       renderer.render(scene, camera);
