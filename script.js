@@ -1,7 +1,7 @@
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const cursorGlow = document.querySelector('.cursor-glow');
 const progress = document.querySelector('.scroll-progress');
-const canvas = document.querySelector('#system-scene');
+const canvas = document.querySelector('#global-scene');
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -73,8 +73,8 @@ async function initThreeScene() {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 120);
-    camera.position.set(0, 0.2, 9.2);
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 120);
+    camera.position.set(0, 0.18, 10.6);
 
     const root = new THREE.Group();
     const nodeLayer = new THREE.Group();
@@ -184,9 +184,9 @@ async function initThreeScene() {
 
     const rings = new THREE.Group();
     [
-      [3.25, 0.012, 0xf6eee3, 0.12, Math.PI / 2.65],
-      [2.25, 0.01, 0xa8d879, 0.18, Math.PI / 2.05],
-      [4.08, 0.008, 0xe96d48, 0.12, Math.PI / 2.95]
+      [3.25, 0.012, 0xf6eee3, 0.1, Math.PI / 2.65],
+      [2.25, 0.01, 0xa8d879, 0.16, Math.PI / 2.05],
+      [4.08, 0.008, 0xe96d48, 0.1, Math.PI / 2.95]
     ].forEach(([radius, tube, color, opacity, rotation], index) => {
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(radius, tube, 12, 180),
@@ -242,6 +242,8 @@ async function initThreeScene() {
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
+      root.scale.setScalar(width < 760 ? 0.78 : width > 1280 ? 1.1 : 1);
+      root.userData.baseX = width < 760 ? 0 : 1.2;
     };
     window.addEventListener('resize', resize);
     resize();
@@ -253,7 +255,8 @@ async function initThreeScene() {
 
       root.rotation.y = elapsed * 0.11 + pointer.x * 0.18 + scrollInfluence;
       root.rotation.x = -0.08 + pointer.y * 0.08;
-      root.position.y = Math.sin(elapsed * 0.5) * 0.08;
+      root.position.x = (root.userData.baseX || 0) + Math.sin(elapsed * 0.2) * 0.2 + pointer.x * 0.16;
+      root.position.y = Math.sin(elapsed * 0.5) * 0.08 - Math.sin(scrollInfluence * 1.8) * 0.26;
       rings.rotation.z = elapsed * 0.12;
       particles.rotation.y = elapsed * 0.028;
       particles.rotation.x = Math.sin(elapsed * 0.18) * 0.05;
