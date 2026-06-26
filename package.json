@@ -1,0 +1,9 @@
+{
+  "name": "cuong-portfolio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nguyen Phu Cuong portfolio website",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
